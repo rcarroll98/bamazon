@@ -1,4 +1,6 @@
 var mysql = require("mysql");
+var inquirer = require("inquirer");
+
 
 var connection = mysql.createConnection({
   host: "localhost",
@@ -61,17 +63,17 @@ function purchaseQuery() {
     })
 };
 
-function updateServer(){
+//function updateServer(){
 
-    connection.query("UPDATE stock_quantity SET ? WHERE ?", function(err, res) {
-        [{
-           stock_quantity: answer.quantity 
-        },
-        {
-            id:answer.id
-        }]
-    })
-};
+    //connection.query("UPDATE stock_quantity SET ? WHERE ?", function(err, res) {
+        //[{
+           //stock_quantity: answer.quantity 
+        //},
+        //{
+            //id:answer.id
+       // }]
+    //})
+//};
 //this function pulls from the server the item_quantity and then subtracts it from the item 
 //quantity in the answer
 
@@ -117,8 +119,4 @@ function purchase() {
 //todo: make function that creates the 
 //error messages that print if they request too many of an item
 //
-
-
-
-
-
+updateServer();
