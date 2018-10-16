@@ -1,122 +1,142 @@
-var mysql = require("mysql");
 var inquirer = require("inquirer");
+const { Client, Pool } = require('pg');
 
+const connectionString = process.env.DATABASE_URL || '127.0.0.1.3456';
+new Client(connectionString);
 
-var connection = mysql.createConnection({
-  host: "localhost",
+const pool = new Pool({
+    user: process.env.USER,
+    host: 'localhost',
+    database: 'bamazon',
+    password: null,
+    port: 5432
+})
 
-  port: 3306,
+const client = new Client({
+    user: process.env.USER,
+    host: 'localhost',
+    database: 'bamazon',
+    password: null,
+    port: 5432
+})
+client.connect()
 
-  user: "root",
+async function start() {
+    await client.connect()
 
-  password: "",
+    await client.end()
 
-  database: "bamazon"
+    await client.connect()
 
-});
+    await client.end()
+};
 
-var isInStock 
+start();
 
-connection.connect(function(err) {
-    if (err) throw err;
-    console.log("connected as id " + connection.threadId);
-    purchaseQuery();
+var answer
 
-  });
+var isInStock
 
-function displayAllProducts(){
-    connection.query("SELECT * FROM products", function(err, res) {
-        for (var i = 0; i < res.length; i++) {
-          console.log(res[i].product_id + " | " + res[i].product_name + " | " + res[i].price);
+var selectedItem
+
+var selectedQuantity
+
+var isInStockBool
+
+var newQuantity
+
+var itemQuantity
+
+var resRows
+
+function displayAllProducts() {
+    const query = {
+        text: "SELECT id, product_name, price FROM products",
+        rowMode: 'array',
+    }
+
+    client.query(query, function (err, res) {
+        resRows = res.rows
+        for (var i = 0; i < resRows.length; i++) {
+            console.log(resRows[i]);
         }
-        console.log("-----------------------------------");
-      });
+
+        askID()
+    })
 }
 
-function purchaseQuery() {
-
-    displayAllProducts();
+function askID() {
 
     inquirer
-    .prompt({
-        name: "item_id",
-        type: "input",
-        message: "What is the id of the item you'd like to buy?",
-    },
-    {
-        name: "product_quantity",
-        type: "input",
-        message: "What is the amount of the item you'd like to buy?",
-        
-      })
-    .then(function(answer){
-        selectedItem = answer.item_id
-        answer.product_quantity
-        isInStock()
-        if (isInStock == true){
-            purchase();
-        }
-        else{
-            console.log("not in stock")
-            purchaseQuery();
-        }
-    })
+        .prompt({
+            name: "item_id",
+            type: "input",
+            message: "What is the id of the item you'd like to buy?",
+        })
+        .then(function (answer) {
+            selectedItem = answer.item_id
+            askQuantity(selectedItem);
+        })
 };
 
-//function updateServer(){
-
-    //connection.query("UPDATE stock_quantity SET ? WHERE ?", function(err, res) {
-        //[{
-           //stock_quantity: answer.quantity 
-        //},
-        //{
-            //id:answer.id
-       // }]
-    //})
-//};
-//this function pulls from the server the item_quantity and then subtracts it from the item 
-//quantity in the answer
-
-
-function isInStock(){
-
-    var selectedItem = item_id
-    
-    connection.query("SELECT * FROM products", function(err, res) {
-        for (var i = 0; i < res.length; i++) {
-          if (selectedItem > 0) {
-            isInStock = true
-          }
-          else {
-            isInStock = false
-          }
-        }
-    })
+function askQuantity(selectedItem) {
+    console.log("You selected: " + selectedItem)
+    inquirer
+        .prompt({
+            name: "product_quantity",
+            type: "input",
+            message: "What is the amount of the item you'd like to buy?",
+        })
+        .then(function (answer) {
+            selectedQuantity = answer.product_quantity
+            checkInventory(selectedItem, selectedQuantity);
+        });
 };
 
-function purchase() {
-    //todo get the item quantity from server, minus it, and then run update server
-    //pull the current quantity and set it as a var
-    var newQuantity = answer.quantity 
-    var currentID = answer.id
-    connection.query("SELECT * FROM products", function(err, res){ 
-        answer.id = currentID
-        res[answer.id] = currentID
-    })
+function checkInventory(selectedItem, selectedQuantity) {
+    var query = {
+        text: "SELECT stock_quantity FROM products where id = " + selectedItem,
+        rowMode: 'array',
+    }
 
-    newQuantity = currentID - answer.id
+    var resRow
+    var itemQuantity 
+    console.log("You selected: " + selectedQuantity)
+    client.query(query, function (err, res) {
+        resRow = res.rows
+        itemQuantity = resRow
+        console.log(resRow)
+        if (resRow <= selectedQuantity){
+            purchase(selectedItem, selectedQuantity, itemQuantity)
+        }else{
+            console.log("Item is out of stock.")
+        }
 
-    connection.query("UPDATE stock_quantity SET ? WHERE ?", function(err, res) {
+    });
+};
+
+function start() {
+    displayAllProducts();
+
+}
+
+function purchase(selectedItem, itemQuantity, selectedQuantity) {
+    var newQuantity;
+    newQuantity = itemQuantity - selectedQuantity
+
+    var query = {
+        text: "UPDATE stock_quantity SET ? WHERE ?",
+        rowMode: 'array',
+    }
+
+    client.query(query, function (err, res) {
+        if (err) throw (err);
         [{
-           stock_quantity: newQuantity
+            stock_quantity: newQuantity
         },
         {
-            id:answer.id
+            id: selectedItem
         }]
     })
+    console.log('Your total is: ' + total + '. Thanks for shopping')
 };
-
-//todo: make function that creates the 
-//error messages that print if they request too many of an item
-//
-updateServer();
